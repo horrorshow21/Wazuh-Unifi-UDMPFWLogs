@@ -14,7 +14,7 @@ Tested on:
 The UDM Pro's policy engine logs iptables-style syslog messages for each firewall rule hit. These are **not** CEF format — they look like this:
 
 ```
-UDMPRO [WAN_LOCAL-D-2147483647] DESCR="[WAN_LOCAL]Block All Traffic" IN=eth8 OUT= MAC=74:ac:b9:... SRC=45.227.228.143 DST=152.208.41.199 LEN=53 PROTO=UDP SPT=22146 DPT=27016
+UDMPRO [WAN_LOCAL-D-2147483647] DESCR="[WAN_LOCAL]Block All Traffic" IN=eth8 OUT= MAC=74:ac:b9:... SRC=x.x.x.x DST=x.x.x.x LEN=53 PROTO=UDP SPT=22146 DPT=27016
 ```
 
 Fields extracted:
