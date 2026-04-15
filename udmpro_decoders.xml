@@ -1,0 +1,55 @@
+<!--
+  UDM Pro firewall/policy engine syslog decoders for Wazuh
+  Tested on: UniFi OS 4.x / UniFi Network 9.x-10.x / Wazuh 4.14.x
+
+  Log format (iptables-style from UniFi Policy Engine):
+  UDMPRO [CHAIN-ACTION-PRIORITY] DESCR="rule name" IN=x OUT=x MAC=x SRC=x DST=x ... PROTO=x SPT=x DPT=x
+
+  ACTION codes:
+    A = Allow
+    D = Deny/Block
+
+  Installation:
+    sudo cp udmpro_decoders.xml /var/ossec/etc/decoders/
+    sudo chown wazuh:wazuh /var/ossec/etc/decoders/udmpro_decoders.xml
+    sudo chmod 660 /var/ossec/etc/decoders/udmpro_decoders.xml
+
+  Requirements:
+    - UDM Pro syslog must be configured to forward to Wazuh on UDP 514
+    - Wazuh ossec.conf must have a syslog <remote> block with allowed-ips covering the UDM Pro IP
+    - Per-rule syslog logging must be enabled in UniFi Network:
+        Settings > CyberSecure > Policy Engine > [each rule] > Syslog Logging
+-->
+
+<!-- Parent decoder: matches any UDM Pro policy engine log -->
+<decoder name="udmpro-firewall">
+  <prematch>UDMPRO [</prematch>
+</decoder>
+
+<!-- Extract rule chain, action (A/D), and rule description -->
+<decoder name="udmpro-firewall-rule">
+  <parent>udmpro-firewall</parent>
+  <regex type="pcre2">\[(\w+)-([AD])-\d+\] DESCR="(.+)"</regex>
+  <order>extra_data, action, rule_name</order>
+</decoder>
+
+<!-- Extract source and destination IPs -->
+<decoder name="udmpro-firewall-ips">
+  <parent>udmpro-firewall</parent>
+  <regex type="pcre2">SRC=([\d.]+) DST=([\d.]+)</regex>
+  <order>srcip, dstip</order>
+</decoder>
+
+<!-- Extract protocol -->
+<decoder name="udmpro-firewall-proto">
+  <parent>udmpro-firewall</parent>
+  <regex type="pcre2"> PROTO=(\w+) </regex>
+  <order>protocol</order>
+</decoder>
+
+<!-- Extract source and destination ports (TCP/UDP only) -->
+<decoder name="udmpro-firewall-ports">
+  <parent>udmpro-firewall</parent>
+  <regex type="pcre2">SPT=(\d+) DPT=(\d+)</regex>
+  <order>srcport, dstport</order>
+</decoder>

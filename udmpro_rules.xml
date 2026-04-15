@@ -1,0 +1,89 @@
+<!--
+  UDM Pro firewall rules for Wazuh
+  Tested on: UniFi OS 4.x / UniFi Network 9.x-10.x / Wazuh 4.14.x
+  Rule ID range: 110000-110099
+
+  Installation:
+    sudo cp udmpro_rules.xml /var/ossec/etc/rules/
+    sudo chown wazuh:wazuh /var/ossec/etc/rules/udmpro_rules.xml
+    sudo chmod 660 /var/ossec/etc/rules/udmpro_rules.xml
+
+  Requires udmpro_decoders.xml to be installed first.
+  Test config before restarting: sudo /var/ossec/bin/wazuh-analysisd -t
+
+  Rule levels:
+    3  = Informational (base event, allow rules)
+    5  = Low (block events, inter-VLAN blocks)
+    6  = Medium (inbound WAN blocks)
+    7  = Medium-high (policy violations e.g. cleartext DNS bypass)
+    8  = High (repeated inter-VLAN blocks from same source)
+    10 = Critical (high frequency WAN blocks - scan/attack pattern)
+
+  Dashboard filter: rule.groups: udmpro
+-->
+
+<group name="udmpro,firewall,">
+
+  <!-- Base rule: any UDM Pro policy engine event -->
+  <rule id="110000" level="3">
+    <decoded_as>udmpro-firewall</decoded_as>
+    <description>UDM Pro: Firewall policy engine event.</description>
+  </rule>
+
+  <!-- Traffic allowed by a firewall rule -->
+  <rule id="110001" level="3">
+    <if_sid>110000</if_sid>
+    <match>]-A-</match>
+    <description>UDM Pro: Traffic allowed by firewall rule: $(rule_name).</description>
+    <group>firewall_allow,</group>
+  </rule>
+
+  <!-- Traffic blocked by a firewall rule -->
+  <rule id="110002" level="5">
+    <if_sid>110000</if_sid>
+    <match>]-D-</match>
+    <description>UDM Pro: Traffic blocked by firewall rule: $(rule_name).</description>
+    <group>firewall_block,</group>
+  </rule>
+
+  <!-- Inbound WAN traffic blocked -->
+  <rule id="110003" level="6">
+    <if_sid>110002</if_sid>
+    <match>WAN_LOCAL-D</match>
+    <description>UDM Pro: Inbound WAN traffic blocked.</description>
+    <group>firewall_block,wan,</group>
+  </rule>
+
+  <!-- Inter-VLAN traffic blocked -->
+  <rule id="110004" level="5">
+    <if_sid>110002</if_sid>
+    <regex type="pcre2">LAN_\w+-D|CUSTOM\d+_\w+-D</regex>
+    <description>UDM Pro: Inter-VLAN traffic blocked: $(rule_name).</description>
+    <group>firewall_block,vlan,</group>
+  </rule>
+
+  <!-- Cleartext DNS blocked - possible bypass attempt -->
+  <rule id="110005" level="7">
+    <if_sid>110002</if_sid>
+    <match>Block Cleartext DNS</match>
+    <description>UDM Pro: Cleartext DNS blocked - possible DNS bypass attempt.</description>
+    <group>firewall_block,dns,policy_violation,</group>
+  </rule>
+
+  <!-- High frequency WAN blocks from same source - scan or attack -->
+  <rule id="110006" level="10" frequency="20" timeframe="60">
+    <if_matched_sid>110003</if_matched_sid>
+    <same_srcip/>
+    <description>UDM Pro: High frequency WAN blocks from same source - possible scan or attack.</description>
+    <group>firewall_block,wan,scan,</group>
+  </rule>
+
+  <!-- Repeated inter-VLAN blocks from same source -->
+  <rule id="110007" level="8" frequency="10" timeframe="60">
+    <if_matched_sid>110004</if_matched_sid>
+    <same_srcip/>
+    <description>UDM Pro: Repeated inter-VLAN blocks from same source.</description>
+    <group>firewall_block,vlan,</group>
+  </rule>
+
+</group>
